@@ -185,7 +185,7 @@ export default function CameraPage() {
                 Lütfen kamera izni verin
               </p>
               {debugInfo.length > 0 && (
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg text-left">
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg text-left max-h-64 overflow-y-auto">
                   <p className="text-xs font-mono text-gray-600 mb-2">Debug Info:</p>
                   {debugInfo.map((info, idx) => (
                     <p key={idx} className="text-xs font-mono text-gray-500">{info}</p>
@@ -212,11 +212,20 @@ export default function CameraPage() {
               >
                 Tekrar Dene
               </button>
+              {debugInfo.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg text-left max-h-64 overflow-y-auto">
+                  <p className="text-xs font-mono text-gray-600 mb-2">Debug Info:</p>
+                  {debugInfo.map((info, idx) => (
+                    <p key={idx} className="text-xs font-mono text-gray-500">{info}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {isCameraActive && !capturedImage && (
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          {/* Hidden video element for camera stream - always rendered */}
+          {!capturedImage && (
+            <div className={`bg-white rounded-2xl shadow-xl overflow-hidden ${!isCameraActive ? 'hidden' : ''}`}>
               <div className="relative bg-black">
                 <video
                   ref={videoRef}
