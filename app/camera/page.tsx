@@ -39,8 +39,20 @@ export default function CameraPage() {
         setStream(mediaStream);
         console.log('Stream video element\'e atandı');
         
-        // Video otomatik play olacak (autoPlay prop sayesinde)
-        // onCanPlay event'i tetiklendiğinde kamera aktif olacak
+        // Video play et ve kamerayı aktifleştir
+        try {
+          await videoRef.current.play();
+          console.log('Video play edildi');
+          // Küçük bir gecikme ile kamerayı aktif yap
+          setTimeout(() => {
+            setIsCameraActive(true);
+            console.log('Kamera aktif!');
+          }, 500);
+        } catch (playErr) {
+          console.error('Video play hatası:', playErr);
+          // Yine de aktif yap
+          setIsCameraActive(true);
+        }
       }
     } catch (err) {
       console.error('Kamera erişim hatası:', err);
