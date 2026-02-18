@@ -55,7 +55,8 @@ Tarayıcıda açın: [http://localhost:3000](http://localhost:3000)
 - **Next.js 14** - React framework (App Router)
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
-- **OpenAI API** - DALL-E 3 image generation
+- **Google Gemini AI** - Prompt enhancement
+- **Hugging Face (Stable Diffusion XL)** - Image generation (ücretsiz tier)
 - **QR Code React** - QR kod oluşturma
 
 ## 🌐 Netlify Deployment
@@ -84,7 +85,8 @@ git push -u origin main
 Netlify dashboard → Site settings → Environment variables:
 
 ```
-OPENAI_API_KEY=sk-your-actual-api-key-here
+GEMINI_API_KEY=your-actual-gemini-api-key-here
+HUGGINGFACE_API_KEY=your-hf-token-here
 NEXT_PUBLIC_APP_URL=https://your-site-name.netlify.app
 ```
 
@@ -92,12 +94,23 @@ NEXT_PUBLIC_APP_URL=https://your-site-name.netlify.app
 
 "Trigger deploy" → "Deploy site"
 
-## 🔑 OpenAI API Key
+## 🔑 API Keys Nasıl Alınır?
 
-1. [OpenAI Platform](https://platform.openai.com/) hesabı oluşturun
-2. [API Keys](https://platform.openai.com/api-keys) sayfasına gidin
-3. "Create new secret key" tıklayın
-4. Key'i Netlify'a ekleyin
+### Google Gemini API Key (Gerekli)
+1. [Google AI Studio](https://makersuite.google.com/app/apikey) sayfasına gidin
+2. Google hesabınızla giriş yapın
+3. "Get API Key" → "Create API key" tıklayın
+4. Key'i kopyalayın ve Netlify'a ekleyin
+
+**Not:** Gemini API ücretsiz tier'a sahiptir (günlük 60 istek limit)
+
+### Hugging Face Token (Gerekli)
+1. [Hugging Face](https://huggingface.co/join) hesabı oluşturun
+2. [Settings → Access Tokens](https://huggingface.co/settings/tokens) sayfasına gidin
+3. "New token" → "Read" yetkisi ile oluşturun
+4. Token'ı kopyalayın ve Netlify'a ekleyin
+
+**Not:** Hugging Face Inference API ücretsiz kullanılabilir (rate limiting var)
 
 ## 📄 Lisans
 

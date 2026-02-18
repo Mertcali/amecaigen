@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { HfInference } from '@huggingface/inference';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,42 +16,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
+        { error: 'Gemini API key is not configured' },
         { status: 500 }
       );
     }
 
-    // Base64 image data'yı temizle
-    const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
-
-    // OpenAI DALL-E 3 ile görsel oluştur
-    // Not: DALL-E 3 şu an için image-to-image desteklemiyor
-    // Bu yüzden sadece prompt ile görsel oluşturacağız
-    // Gerçek üretim ortamında Stable Diffusion veya benzeri bir servis kullanılabilir
+    // Gemini ile prompt iyileştirme
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: `Create a professional, realistic image: ${prompt}. High quality, photorealistic, professional photography, 4K resolution.`,
-      n: 1,
-      size: "1024x1024",
-      quality: "hd",
-      style: "natural",
+    const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
+    Enhance this prompt to create a photorealistic, professional medical image:
+    
+    Original prompt: "${prompt}"
+    
+    Requirements:
+    - Make it highly detailed and specific
+    - Emphasize photorealistic quality
+    - Include professional medical environment details
+    - Keep it under 200 words
+    - Focus on realism and professionalism
+    
+    Return ONLY the enhanced prompt, nothing else.`;
+
+    const result = await model.generateContent(enhancementPrompt);
+    const response = await result.response;
+    const enhancedPrompt = response.text();
+
+    console.log('Enhanced prompt:', enhancedPrompt);
+
+    // Hugging Face ile görsel oluşturma (Stable Diffusion XL)
+    const imageBlob = await hf.textToImage({
+      model: 'stabilityai/stable-diffusion-xl-base-1.0',
+      inputs: enhancedPrompt,
+      parameters: {
+        negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+      }
     });
 
-    const generatedImageUrl = response.data?.[0]?.url;
-
-    if (!generatedImageUrl) {
-      return NextResponse.json(
-        { error: 'Failed to generate image' },
-        { status: 500 }
-      );
-    }
+    // Blob'u base64'e çevir
+    const arrayBuffer = await imageBlob.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
 
     return NextResponse.json({
       success: true,
-      imageUrl: generatedImageUrl,
+      imageUrl: base64Image,
+      enhancedPrompt: enhancedPrompt,
     });
 
   } catch (error: any) {
