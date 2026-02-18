@@ -38,9 +38,50 @@ export default function CameraPage() {
       setDebugInfo(prev => [...prev, '✅ Stream acquired']);
       console.log('✅ Media stream alındı');
       
-      // Stream'i state'e set et - useEffect handle edecek
+      // Stream'i state'e set et
       setStream(mediaStream);
       setDebugInfo(prev => [...prev, '💾 Stream saved to state']);
+      
+      // Video element'i bekle ve bağla
+      let attempts = 0;
+      const maxAttempts = 20;
+      
+      const connectStream = () => {
+        attempts++;
+        setDebugInfo(prev => [...prev, `🔍 Attempt ${attempts}: Looking for video element`]);
+        
+        if (videoRef.current) {
+          setDebugInfo(prev => [...prev, '✅ Video element found']);
+          const video = videoRef.current;
+          video.srcObject = mediaStream;
+          
+          setDebugInfo(prev => [...prev, '📹 Stream assigned to video']);
+          
+          // Play'i zorla
+          video.play()
+            .then(() => {
+              setDebugInfo(prev => [...prev, '▶️ Video playing']);
+              setTimeout(() => {
+                setDebugInfo(prev => [...prev, '✅ Camera activated!']);
+                setIsCameraActive(true);
+              }, 500);
+            })
+            .catch((err) => {
+              setDebugInfo(prev => [...prev, `⚠️ Play error: ${err.message}, activating anyway`]);
+              setTimeout(() => {
+                setIsCameraActive(true);
+              }, 1000);
+            });
+        } else if (attempts < maxAttempts) {
+          setDebugInfo(prev => [...prev, '⏳ Video element not ready, retrying...']);
+          setTimeout(connectStream, 200);
+        } else {
+          setDebugInfo(prev => [...prev, '❌ Video element not found after max attempts']);
+          setError('Video element yüklenemedi');
+        }
+      };
+      
+      connectStream();
       
     } catch (err) {
       console.error('❌ Kamera erişim hatası:', err);
@@ -106,70 +147,6 @@ export default function CameraPage() {
       }
     };
   }, []); // Boş array - sadece mount'ta çalış
-
-  // Stream değiştiğinde video element'e bağla
-  useEffect(() => {
-    if (stream && videoRef.current && !isCameraActive) {
-      setDebugInfo(prev => [...prev, '🔗 Connecting stream to video element']);
-      const video = videoRef.current;
-      video.srcObject = stream;
-      
-      let activated = false;
-      
-      const activateCamera = () => {
-        if (activated) return;
-        activated = true;
-        setDebugInfo(prev => [...prev, '✅ Camera active!']);
-        console.log('✅ Kamera aktif!');
-        setIsCameraActive(true);
-      };
-      
-      // Multiple event listeners for cross-browser compatibility
-      video.onloadedmetadata = () => {
-        setDebugInfo(prev => [...prev, '✅ Metadata loaded']);
-        console.log('✅ Video metadata yüklendi');
-      };
-      
-      video.onloadeddata = () => {
-        setDebugInfo(prev => [...prev, '✅ Data loaded']);
-        console.log('✅ Video data yüklendi');
-      };
-      
-      video.oncanplay = () => {
-        setDebugInfo(prev => [...prev, '✅ Can play']);
-        console.log('✅ Video can play');
-        activateCamera();
-      };
-      
-      video.onplaying = () => {
-        setDebugInfo(prev => [...prev, '▶️ Playing']);
-        console.log('✅ Video playing');
-        activateCamera();
-      };
-      
-      // Try to play immediately
-      video.play()
-        .then(() => {
-          setDebugInfo(prev => [...prev, '▶️ Play started']);
-          console.log('✅ Video play başladı');
-          // Fallback timeout - mobil'de event trigger olmayabilir
-          setTimeout(() => {
-            if (video.readyState >= 2) {
-              activateCamera();
-            }
-          }, 1500);
-        })
-        .catch((err) => {
-          setDebugInfo(prev => [...prev, `⚠️ Play error: ${err.message}`]);
-          console.error('❌ Video play hatası:', err);
-          // Hata olsa bile 2 saniye sonra göster
-          setTimeout(() => {
-            setDebugInfo(prev => [...prev, '⚠️ Forcing activation']);
-            activateCamera();
-          }, 2000);
-        });
-    }
-  }, [stream, isCameraActive]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
