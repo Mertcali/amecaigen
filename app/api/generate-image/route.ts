@@ -17,34 +17,44 @@ export async function POST(request: NextRequest) {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Gemini API key is not configured' },
-        { status: 500 }
-      );
+      console.warn('⚠️ Gemini API key not configured, using basic prompt enhancement');
     }
 
-    // Gemini ile prompt iyileştirme
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-    const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
-    Enhance this prompt to create a photorealistic, professional medical image:
-    
-    Original prompt: "${prompt}"
-    
-    Requirements:
-    - Make it highly detailed and specific
-    - Emphasize photorealistic quality
-    - Include professional medical environment details
-    - Keep it under 200 words
-    - Focus on realism and professionalism
-    
-    Return ONLY the enhanced prompt, nothing else.`;
+    let enhancedPrompt = prompt;
 
-    const result = await model.generateContent(enhancementPrompt);
-    const response = await result.response;
-    const enhancedPrompt = response.text();
+    // Gemini ile prompt iyileştirme (optional - hata alırsa skip)
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+      
+      const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
+      Enhance this prompt to create a photorealistic, professional medical image:
+      
+      Original prompt: "${prompt}"
+      
+      Requirements:
+      - Make it highly detailed and specific
+      - Emphasize photorealistic quality
+      - Include professional medical environment details
+      - Keep it under 200 words
+      - Focus on realism and professionalism
+      
+      Return ONLY the enhanced prompt, nothing else.`;
 
-    console.log('Enhanced prompt:', enhancedPrompt);
+      const result = await model.generateContent(enhancementPrompt);
+      const response = await result.response;
+      enhancedPrompt = response.text();
+
+      console.log('✅ Gemini enhanced prompt:', enhancedPrompt);
+      } catch (geminiError: any) {
+        console.warn('⚠️ Gemini enhancement failed, using original prompt:', geminiError.message);
+        // Gemini başarısız olursa orijinal prompt'u kullan
+        enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
+      }
+    } else {
+      // Gemini yoksa basit enhancement
+      enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
+    }
 
     // Hugging Face ile görsel oluşturma (Stable Diffusion XL)
     const imageBlob = await hf.textToImage({
