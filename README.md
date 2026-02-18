@@ -13,15 +13,16 @@ Modern web uygulaması - AI destekli medikal fotoğraf deneyimi. Kullanıcılar 
 
 ## 🚀 Hızlı Başlangıç
 
-### Netlify ile Deploy (Önerilen)
+### Vercel ile Deploy (Önerilen)
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Mertcali/amecaigen)
 
 1. Bu repo'yu GitHub'a push edin
-2. Netlify'a bağlayın
+2. Vercel'a bağlayın
 3. Environment Variables ekleyin:
-   - `OPENAI_API_KEY` - OpenAI API key'iniz
-   - `NEXT_PUBLIC_APP_URL` - Netlify URL'iniz (örn: `https://your-app.netlify.app`)
+   - `GEMINI_API_KEY` - Google Gemini API key'iniz
+   - `HUGGINGFACE_API_KEY` - Hugging Face token'ınız
+   - `NEXT_PUBLIC_APP_URL` - Vercel URL'iniz (örn: `https://your-app.vercel.app`)
 4. Deploy edin!
 
 ### Lokal Geliştirme
@@ -41,7 +42,7 @@ npm run dev
 
 Tarayıcıda açın: [http://localhost:3000](http://localhost:3000)
 
-⚠️ **Not:** Kamera erişimi için **HTTPS** gereklidir. Lokal testlerde sadece `localhost` çalışır. Mobil test için Netlify deploy kullanın.
+⚠️ **Not:** Kamera erişimi için **HTTPS** gereklidir. Lokal testlerde sadece `localhost` çalışır. Mobil test için Vercel deploy kullanın.
 
 ## 🎨 Kullanım Akışı
 
@@ -59,7 +60,7 @@ Tarayıcıda açın: [http://localhost:3000](http://localhost:3000)
 - **Hugging Face (Stable Diffusion XL)** - Image generation (ücretsiz tier)
 - **QR Code React** - QR kod oluşturma
 
-## 🌐 Netlify Deployment
+## 🌐 Vercel Deployment
 
 ### 1. GitHub'a Push
 
@@ -72,27 +73,27 @@ git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git push -u origin main
 ```
 
-### 2. Netlify'da Deploy
+### 2. Vercel'da Deploy
 
-1. [Netlify](https://app.netlify.com) hesabınıza giriş yapın
-2. "Add new site" → "Import an existing project"
+1. [Vercel](https://vercel.com) hesabınıza giriş yapın (GitHub ile)
+2. "Add New Project" → "Import Git Repository"
 3. GitHub repo'nuzu seçin
-4. Build settings otomatik algılanacak
-5. "Deploy site" tıklayın
+4. Framework Preset otomatik algılanacak (Next.js)
+5. "Deploy" tıklayın
 
 ### 3. Environment Variables
 
-Netlify dashboard → Site settings → Environment variables:
+Vercel dashboard → Settings → Environment Variables:
 
 ```
 GEMINI_API_KEY=your-actual-gemini-api-key-here
 HUGGINGFACE_API_KEY=your-hf-token-here
-NEXT_PUBLIC_APP_URL=https://your-site-name.netlify.app
+NEXT_PUBLIC_APP_URL=https://your-site-name.vercel.app
 ```
 
 ### 4. Redeploy
 
-"Trigger deploy" → "Deploy site"
+"Deployments" sekmesine gidin → En son deployment'ın yanındaki "..." → "Redeploy"
 
 ## 🔑 API Keys Nasıl Alınır?
 
