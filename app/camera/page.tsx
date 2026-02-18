@@ -11,14 +11,17 @@ export default function CameraPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
-  const handleVideoReady = () => {
-    console.log('Video hazır!');
+  const handleVideoReady = useCallback(() => {
+    console.log('Video hazır, kamera aktifleştiriliyor...');
+    setDebugInfo(prev => [...prev, '✅ Video ready event']);
     setIsCameraActive(true);
-  };
+  }, []);
 
   const startCamera = async () => {
     try {
+      setDebugInfo(['🎥 Starting camera...']);
       console.log('Kamera başlatılıyor...');
       setError(null);
       setIsCameraActive(false);
@@ -26,37 +29,57 @@ export default function CameraPage() {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         },
         audio: false,
       });
       
-      console.log('Media stream alındı:', mediaStream);
+      setDebugInfo(prev => [...prev, '✅ Stream acquired']);
+      console.log('✅ Media stream alındı');
       
       if (videoRef.current) {
+        setDebugInfo(prev => [...prev, '📹 Assigning stream to video']);
+        console.log('Video element\'e stream atanıyor...');
         videoRef.current.srcObject = mediaStream;
         setStream(mediaStream);
-        console.log('Stream video element\'e atandı');
         
-        // Video play et ve kamerayı aktifleştir
-        try {
-          await videoRef.current.play();
-          console.log('Video play edildi');
-          // Küçük bir gecikme ile kamerayı aktif yap
-          setTimeout(() => {
-            setIsCameraActive(true);
-            console.log('Kamera aktif!');
-          }, 500);
-        } catch (playErr) {
-          console.error('Video play hatası:', playErr);
-          // Yine de aktif yap
-          setIsCameraActive(true);
-        }
+        // Video metadata yüklendiğinde devam et
+        videoRef.current.onloadedmetadata = () => {
+          setDebugInfo(prev => [...prev, '✅ Metadata loaded']);
+          console.log('✅ Video metadata yüklendi');
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                setDebugInfo(prev => [...prev, '▶️ Playing...']);
+                console.log('✅ Video play başladı');
+                // Kamera görüntüsü geldiğinde aktif yap
+                setTimeout(() => {
+                  if (videoRef.current && videoRef.current.readyState >= 2) {
+                    setDebugInfo(prev => [...prev, '✅ Camera active!']);
+                    console.log('✅ Kamera aktif!');
+                    setIsCameraActive(true);
+                  }
+                }, 800);
+              })
+              .catch((err) => {
+                setDebugInfo(prev => [...prev, `⚠️ Play error: ${err.message}`]);
+                console.error('❌ Video play hatası:', err);
+                // Otomatik play olmadıysa yine göster
+                setIsCameraActive(true);
+              });
+          }
+        };
       }
     } catch (err) {
-      console.error('Kamera erişim hatası:', err);
-      setError('Kameraya erişilemedi. Lütfen kamera izinlerini kontrol edin.');
+      console.error('❌ Kamera erişim hatası:', err);
+      if (err instanceof Error) {
+        setDebugInfo(prev => [...prev, `❌ Error: ${err.message}`]);
+        setError(`Kameraya erişilemedi: ${err.message}`);
+      } else {
+        setDebugInfo(prev => [...prev, '❌ Unknown error']);
+        setError('Kameraya erişilemedi. Lütfen kamera izinlerini kontrol edin.');
+      }
       setIsCameraActive(false);
     }
   };
@@ -146,9 +169,17 @@ export default function CameraPage() {
                 <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600"></div>
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-3">Kamera Başlatılıyor...</h2>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 Lütfen kamera izni verin
               </p>
+              {debugInfo.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg text-left">
+                  <p className="text-xs font-mono text-gray-600 mb-2">Debug Info:</p>
+                  {debugInfo.map((info, idx) => (
+                    <p key={idx} className="text-xs font-mono text-gray-500">{info}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -182,7 +213,8 @@ export default function CameraPage() {
                   muted
                   className="w-full h-auto transform scale-x-[-1]"
                   onCanPlay={handleVideoReady}
-                  onLoadedData={() => console.log('Video data yüklendi')}
+                  onPlaying={handleVideoReady}
+                  onLoadedMetadata={handleVideoReady}
                   style={{ minHeight: '300px' }}
                 />
                 <div className="absolute top-4 left-4 right-4">
