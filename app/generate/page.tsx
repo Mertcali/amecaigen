@@ -198,11 +198,19 @@ export default function GeneratePage() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Bir Hata Oluştu</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-red-700">
-                Lütfen API key'inizin doğru ayarlandığından emin olun (.env.local dosyası)
-              </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-700 font-semibold mb-2">Hata Detayı:</p>
+              <p className="text-sm text-red-600 break-words">{error}</p>
+              {(error?.includes('API key') || error?.includes('configured')) && (
+                <p className="text-xs text-red-500 mt-3">
+                  💡 Vercel Environment Variables'ı kontrol edin ve redeploy yapın
+                </p>
+              )}
+              {(error?.includes('quota') || error?.includes('rate limit')) && (
+                <p className="text-xs text-red-500 mt-3">
+                  💡 API rate limit aşıldı, birkaç dakika bekleyip tekrar deneyin
+                </p>
+              )}
             </div>
           </div>
           <button

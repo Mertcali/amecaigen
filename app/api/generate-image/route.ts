@@ -71,9 +71,23 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Image generation error:', error);
     
+    let errorMessage = 'Failed to generate image';
+    if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Check for specific error types
+    if (error.message?.includes('API key')) {
+      errorMessage = 'API key hatası: ' + error.message;
+    } else if (error.message?.includes('quota')) {
+      errorMessage = 'API quota aşıldı. Lütfen daha sonra tekrar deneyin.';
+    } else if (error.message?.includes('rate limit')) {
+      errorMessage = 'Rate limit aşıldı. Lütfen birkaç dakika bekleyin.';
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Failed to generate image',
+        error: errorMessage,
         details: error.message || 'Unknown error'
       },
       { status: 500 }
