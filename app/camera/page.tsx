@@ -38,68 +38,10 @@ export default function CameraPage() {
       setDebugInfo(prev => [...prev, '✅ Stream acquired']);
       console.log('✅ Media stream alındı');
       
-      if (videoRef.current) {
-        setDebugInfo(prev => [...prev, '📹 Assigning stream to video']);
-        console.log('Video element\'e stream atanıyor...');
-        videoRef.current.srcObject = mediaStream;
-        setStream(mediaStream);
-        
-        const video = videoRef.current;
-        let activated = false;
-        
-        const activateCamera = () => {
-          if (activated) return;
-          activated = true;
-          setDebugInfo(prev => [...prev, '✅ Camera active!']);
-          console.log('✅ Kamera aktif!');
-          setIsCameraActive(true);
-        };
-        
-        // Multiple event listeners for cross-browser compatibility
-        video.onloadedmetadata = () => {
-          setDebugInfo(prev => [...prev, '✅ Metadata loaded']);
-          console.log('✅ Video metadata yüklendi');
-        };
-        
-        video.onloadeddata = () => {
-          setDebugInfo(prev => [...prev, '✅ Data loaded']);
-          console.log('✅ Video data yüklendi');
-        };
-        
-        video.oncanplay = () => {
-          setDebugInfo(prev => [...prev, '✅ Can play']);
-          console.log('✅ Video can play');
-          activateCamera();
-        };
-        
-        video.onplaying = () => {
-          setDebugInfo(prev => [...prev, '▶️ Playing']);
-          console.log('✅ Video playing');
-          activateCamera();
-        };
-        
-        // Try to play immediately
-        video.play()
-          .then(() => {
-            setDebugInfo(prev => [...prev, '▶️ Play started']);
-            console.log('✅ Video play başladı');
-            // Fallback timeout - mobil'de event trigger olmayabilir
-            setTimeout(() => {
-              if (video.readyState >= 2) {
-                activateCamera();
-              }
-            }, 1500);
-          })
-          .catch((err) => {
-            setDebugInfo(prev => [...prev, `⚠️ Play error: ${err.message}`]);
-            console.error('❌ Video play hatası:', err);
-            // Hata olsa bile 2 saniye sonra göster
-            setTimeout(() => {
-              setDebugInfo(prev => [...prev, '⚠️ Forcing activation']);
-              activateCamera();
-            }, 2000);
-          });
-      }
+      // Stream'i state'e set et - useEffect handle edecek
+      setStream(mediaStream);
+      setDebugInfo(prev => [...prev, '💾 Stream saved to state']);
+      
     } catch (err) {
       console.error('❌ Kamera erişim hatası:', err);
       if (err instanceof Error) {
@@ -164,6 +106,70 @@ export default function CameraPage() {
       }
     };
   }, []); // Boş array - sadece mount'ta çalış
+
+  // Stream değiştiğinde video element'e bağla
+  useEffect(() => {
+    if (stream && videoRef.current && !isCameraActive) {
+      setDebugInfo(prev => [...prev, '🔗 Connecting stream to video element']);
+      const video = videoRef.current;
+      video.srcObject = stream;
+      
+      let activated = false;
+      
+      const activateCamera = () => {
+        if (activated) return;
+        activated = true;
+        setDebugInfo(prev => [...prev, '✅ Camera active!']);
+        console.log('✅ Kamera aktif!');
+        setIsCameraActive(true);
+      };
+      
+      // Multiple event listeners for cross-browser compatibility
+      video.onloadedmetadata = () => {
+        setDebugInfo(prev => [...prev, '✅ Metadata loaded']);
+        console.log('✅ Video metadata yüklendi');
+      };
+      
+      video.onloadeddata = () => {
+        setDebugInfo(prev => [...prev, '✅ Data loaded']);
+        console.log('✅ Video data yüklendi');
+      };
+      
+      video.oncanplay = () => {
+        setDebugInfo(prev => [...prev, '✅ Can play']);
+        console.log('✅ Video can play');
+        activateCamera();
+      };
+      
+      video.onplaying = () => {
+        setDebugInfo(prev => [...prev, '▶️ Playing']);
+        console.log('✅ Video playing');
+        activateCamera();
+      };
+      
+      // Try to play immediately
+      video.play()
+        .then(() => {
+          setDebugInfo(prev => [...prev, '▶️ Play started']);
+          console.log('✅ Video play başladı');
+          // Fallback timeout - mobil'de event trigger olmayabilir
+          setTimeout(() => {
+            if (video.readyState >= 2) {
+              activateCamera();
+            }
+          }, 1500);
+        })
+        .catch((err) => {
+          setDebugInfo(prev => [...prev, `⚠️ Play error: ${err.message}`]);
+          console.error('❌ Video play hatası:', err);
+          // Hata olsa bile 2 saniye sonra göster
+          setTimeout(() => {
+            setDebugInfo(prev => [...prev, '⚠️ Forcing activation']);
+            activateCamera();
+          }, 2000);
+        });
+    }
+  }, [stream, isCameraActive]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
