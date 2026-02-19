@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
 
     let enhancedPrompt = prompt;
 
-    // Gemini ile prompt iyileştirme
+    // Gemini ile prompt iyileştirme - GEÇİCİ OLARAK DEVRE DIŞI
+    // Kullanıcı isteği üzerine Gemini kaynaklı hataları önlemek için bu adımı atlıyoruz.
+    /*
     if (process.env.GEMINI_API_KEY) {
       // Hata yakalama (try-catch) kaldırıldı, hata varsa direkt dönsün
       // Model ismi güncellendi: 'gemini-1.5-flash-latest' -> 'gemini-1.5-flash'
@@ -49,6 +51,11 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Gemini API key not configured, using basic prompt enhancement');
       enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
     }
+    */
+   
+    // Gemini yerine basit şablon kullan
+    console.log('⚠️ Gemini devre dışı bırakıldı, manuel şablon kullanılıyor.');
+    enhancedPrompt = `Photorealistic, professional, high quality medical image: ${prompt}. Ultra detailed, 4K resolution, professional photography, clinical environment, realistic lighting, sharp focus.`;
 
     // Hugging Face API çağrısı için body hazırlığı
     let apiBody;
