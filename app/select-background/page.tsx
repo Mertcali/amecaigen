@@ -8,6 +8,7 @@ interface Background {
   name: string;
   description: string;
   prompt: string;
+  backgroundImageUrl: string;
   icon: string;
   gradient: string;
 }
@@ -17,7 +18,8 @@ const backgrounds: Background[] = [
     id: 'icu',
     name: 'Yoğun Bakım Ünitesi',
     description: 'Modern yoğun bakım ünitesinde profesyonel sağlık çalışanı',
-    prompt: 'professional healthcare worker in a modern intensive care unit (ICU), medical equipment in background, hospital setting, professional medical attire, realistic medical environment, clean and sterile atmosphere, natural hospital lighting',
+    prompt: 'professional healthcare worker in a modern intensive care unit',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=90',
     icon: '🏥',
     gradient: 'from-blue-500 to-cyan-600',
   },
@@ -25,9 +27,28 @@ const backgrounds: Background[] = [
     id: 'operating-room',
     name: 'Ameliyathane',
     description: 'Son teknoloji ameliyathanede cerrahi ekip üyesi',
-    prompt: 'surgeon in a state-of-the-art operating room, surgical equipment and monitors in background, wearing surgical scrubs and cap, professional medical setting, operating theater lights, sterile environment, modern surgical suite',
+    prompt: 'surgeon in a state-of-the-art operating room',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=1920&q=90',
     icon: '⚕️',
     gradient: 'from-teal-500 to-emerald-600',
+  },
+  {
+    id: 'emergency',
+    name: 'Acil Servis',
+    description: 'Hızlı tempolu acil servis ortamında sağlık profesyoneli',
+    prompt: 'healthcare professional in a busy emergency room',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=1920&q=90',
+    icon: '🚑',
+    gradient: 'from-red-500 to-orange-600',
+  },
+  {
+    id: 'laboratory',
+    name: 'Laboratuvar',
+    description: 'Modern tıbbi laboratuvarda araştırmacı',
+    prompt: 'scientist in a modern medical laboratory',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=1920&q=90',
+    icon: '🔬',
+    gradient: 'from-purple-500 to-violet-600',
   },
 ];
 

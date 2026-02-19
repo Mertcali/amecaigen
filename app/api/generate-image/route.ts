@@ -1,166 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import sharp from 'sharp';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const OUTPUT_WIDTH = 1080;
+const OUTPUT_HEIGHT = 1080;
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, prompt } = await request.json();
+    const { image, backgroundImageUrl } = await request.json();
 
-    if (!image || !prompt) {
+    if (!image) {
+      return NextResponse.json({ error: 'Fotoğraf zorunludur' }, { status: 400 });
+    }
+
+    if (!backgroundImageUrl) {
+      return NextResponse.json({ error: 'Arka plan görseli zorunludur' }, { status: 400 });
+    }
+
+    if (!process.env.REMOVEBG_API_KEY) {
       return NextResponse.json(
-        { error: 'Image and prompt are required' },
-        { status: 400 }
+        { error: 'remove.bg API anahtarı yapılandırılmamış. Lütfen REMOVEBG_API_KEY ortam değişkenini ayarlayın.' },
+        { status: 500 }
       );
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn('⚠️ Gemini API key not configured, using basic prompt enhancement');
-    }
+    // ─── 1. ARKA PLANI KALDIR (remove.bg) ────────────────────────────────────
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    let enhancedPrompt = prompt;
-
-    // Gemini ile prompt iyileştirme - GEÇİCİ OLARAK DEVRE DIŞI
-    // Kullanıcı isteği üzerine Gemini kaynaklı hataları önlemek için bu adımı atlıyoruz.
-    /*
-    if (process.env.GEMINI_API_KEY) {
-      // Hata yakalama (try-catch) kaldırıldı, hata varsa direkt dönsün
-      // Model ismi güncellendi: 'gemini-1.5-flash-latest' -> 'gemini-1.5-flash'
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-      const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
-      Enhance this prompt to create a photorealistic, professional medical image:
-      
-      Original prompt: "${prompt}"
-      
-      Requirements:
-      - Make it highly detailed and specific
-      - Emphasize photorealistic quality
-      - Include professional medical environment details
-      - Keep it under 200 words
-      - Focus on realism and professionalism
-      
-      Return ONLY the enhanced prompt, nothing else.`;
-
-      const result = await model.generateContent(enhancementPrompt);
-      const response = await result.response;
-      enhancedPrompt = response.text();
-
-      console.log('✅ Gemini enhanced prompt:', enhancedPrompt);
-    } else {
-      console.warn('⚠️ Gemini API key not configured, using basic prompt enhancement');
-      enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
-    }
-    */
-   
-    // Gemini yerine basit şablon kullan
-    console.log('⚠️ Gemini devre dışı bırakıldı, manuel şablon kullanılıyor.');
-    enhancedPrompt = `Photorealistic, professional, high quality medical image: ${prompt}. Ultra detailed, 4K resolution, professional photography, clinical environment, realistic lighting, sharp focus.`;
-
-    // Hugging Face API çağrısı için body hazırlığı
-    // NOT: SDXL base model genellikle Text-to-Image olarak çalışır. 
-    // Image-to-Image için API'ye görseli doğru formatta göndermek kritiktir.
-    // Ancak router.huggingface.co üzerinde otomatik pipeline seçimi Text2Image'a düşüyor olabilir.
-    
-    let apiBody;
-    
-    if (image) {
-      // Base64 header'ını temizle
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
-      
-      // Image-to-Image için 'inputs' görsel olmalı, 'prompt' parametrelerde olmalı.
-      // Ancak alınan hatada 'multiple values for argument prompt' deniyor.
-      // Bu, sistemin 'inputs'u prompt olarak algıladığını (Text2Image pipeline) gösteriyor.
-      // Çözüm: inputs'u prompt yapıp, görseli parametre olarak göndermeyi deneyeceğiz (bazı endpointler bunu destekler)
-      // VEYA daha robust bir yöntem: Görseli YOK SAYIP sadece prompt ile üretim yapmak (Hata almamak için)
-      // Şimdilik Image-to-Image'i geçici olarak devre dışı bırakıp Text-to-Image dönüyoruz
-      // çünkü SDXL Inference API direkt img2img desteklemeyebilir bu endpointte.
-      
-      console.log('⚠️ Image-to-Image API hatası nedeniyle görsel yok sayılıyor, Text-to-Image kullanılıyor.');
-      
-      // Prompt'u zenginleştir (görselden bağımsız)
-      apiBody = {
-        inputs: enhancedPrompt, // Prompt'u inputs'a koyuyoruz
-        parameters: {
-          negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-          num_inference_steps: 30, 
-          guidance_scale: 7.5,
-        },
-        options: {
-          wait_for_model: true,
-          use_cache: false
-        }
-      };
-      
-    } else {
-      // Sadece text varsa Text-to-Image
-      apiBody = {
-        inputs: enhancedPrompt,
-        parameters: {
-          negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-          num_inference_steps: 25,
-          guidance_scale: 7.5,
-        },
-        options: {
-          wait_for_model: true,
-          use_cache: false
-        }
-      };
-      console.log('📝 Text-to-Image modu kullanılıyor');
-    }
-
-    // Hugging Face ile görsel oluşturma (direkt API çağrısı - YENİ ROUTER FORMAT)
-    const hfResponse = await fetch(
-      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-          'Content-Type': 'application/json',
-          'x-use-cache': 'false',
-        },
-        body: JSON.stringify(apiBody),
-      }
+    const formData = new FormData();
+    formData.append(
+      'image_file',
+      new Blob([imageBuffer], { type: 'image/jpeg' }),
+      'photo.jpg'
     );
+    formData.append('size', 'auto');
 
-    if (!hfResponse.ok) {
-      const errorText = await hfResponse.text();
-      throw new Error(`Hugging Face API error: ${hfResponse.status} - ${errorText}`);
+    console.log('🔄 remove.bg API çağrısı yapılıyor...');
+
+    const removeBgResponse = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': process.env.REMOVEBG_API_KEY,
+      },
+      body: formData,
+    });
+
+    if (!removeBgResponse.ok) {
+      const errorText = await removeBgResponse.text();
+      console.error('remove.bg hatası:', removeBgResponse.status, errorText);
+
+      if (removeBgResponse.status === 402) {
+        throw new Error('remove.bg API krediniz tükendi. https://www.remove.bg/tr/dashboard adresinden kontrol edin.');
+      }
+      if (removeBgResponse.status === 403) {
+        throw new Error('remove.bg API anahtarı geçersiz. Lütfen REMOVEBG_API_KEY değerini kontrol edin.');
+      }
+      throw new Error(`remove.bg API hatası: ${removeBgResponse.status} - ${errorText}`);
     }
 
-    // Blob'u base64'e çevir
-    const imageBlob = await hfResponse.blob();
-    const arrayBuffer = await imageBlob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
+    const transparentBuffer = Buffer.from(await removeBgResponse.arrayBuffer());
+    console.log('✅ Arka plan başarıyla kaldırıldı');
+
+    // ─── 2. ARKA PLAN GÖRSELİNİ İNDİR ───────────────────────────────────────
+    console.log('🔄 Arka plan görseli indiriliyor:', backgroundImageUrl);
+
+    const bgResponse = await fetch(backgroundImageUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    if (!bgResponse.ok) {
+      throw new Error(`Arka plan görseli indirilemedi: ${bgResponse.status}`);
+    }
+
+    const backgroundBuffer = Buffer.from(await bgResponse.arrayBuffer());
+    console.log('✅ Arka plan görseli indirildi');
+
+    // ─── 3. GÖRSELLERİ BİRLEŞTİR (sharp) ────────────────────────────────────
+    // Arka planı kare forma getir (1080x1080)
+    const resizedBg = await sharp(backgroundBuffer)
+      .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, { fit: 'cover', position: 'centre' })
+      .toBuffer();
+
+    // Kullanıcı görselini ölçeklendir:
+    // maks yükseklik %90, maks genişlik %75 (kişi ortada)
+    const userMaxHeight = Math.round(OUTPUT_HEIGHT * 0.90);
+    const userMaxWidth = Math.round(OUTPUT_WIDTH * 0.75);
+
+    const resizedUser = await sharp(transparentBuffer)
+      .resize(userMaxWidth, userMaxHeight, {
+        fit: 'inside',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+
+    const userMeta = await sharp(resizedUser).metadata();
+    const userW = userMeta.width ?? userMaxWidth;
+    const userH = userMeta.height ?? userMaxHeight;
+
+    // Alt-orta hizalama
+    const left = Math.round((OUTPUT_WIDTH - userW) / 2);
+    const top = OUTPUT_HEIGHT - userH;
+
+    const finalBuffer = await sharp(resizedBg)
+      .composite([{ input: resizedUser, left, top }])
+      .jpeg({ quality: 92 })
+      .toBuffer();
+
+    const base64Image = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
+
+    console.log('✅ Görsel birleştirme tamamlandı');
 
     return NextResponse.json({
       success: true,
       imageUrl: base64Image,
-      enhancedPrompt: enhancedPrompt,
     });
 
   } catch (error: any) {
-    console.error('Image generation error:', error);
-    
-    let errorMessage = 'Failed to generate image';
-    if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    // Check for specific error types
-    if (error.message?.includes('API key')) {
-      errorMessage = 'API key hatası: ' + error.message;
-    } else if (error.message?.includes('quota')) {
-      errorMessage = 'API quota aşıldı. Lütfen daha sonra tekrar deneyin.';
-    } else if (error.message?.includes('rate limit')) {
-      errorMessage = 'Rate limit aşıldı. Lütfen birkaç dakika bekleyin.';
-    }
-    
+    console.error('Görsel oluşturma hatası:', error);
+
     return NextResponse.json(
-      { 
-        error: errorMessage,
-        details: error.message || 'Unknown error'
+      {
+        error: error.message || 'Görsel oluşturulurken bir hata oluştu',
+        details: error.message ?? 'Bilinmeyen hata',
       },
       { status: 500 }
     );

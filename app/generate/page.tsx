@@ -8,6 +8,7 @@ interface Background {
   name: string;
   description: string;
   prompt: string;
+  backgroundImageUrl: string;
   icon: string;
   gradient: string;
 }
@@ -44,12 +45,12 @@ export default function GeneratePage() {
     }, 1000);
 
     // Generate image
-    generateImage(capturedPhoto, bg.prompt);
+    generateImage(capturedPhoto, bg.backgroundImageUrl);
 
     return () => clearInterval(progressInterval);
   }, [router]);
 
-  const generateImage = async (photo: string, prompt: string) => {
+  const generateImage = async (photo: string, backgroundImageUrl: string) => {
     try {
       const response = await fetch('/api/generate-image', {
         method: 'POST',
@@ -58,7 +59,7 @@ export default function GeneratePage() {
         },
         body: JSON.stringify({
           image: photo,
-          prompt: prompt,
+          backgroundImageUrl: backgroundImageUrl,
         }),
       });
 
@@ -155,7 +156,7 @@ export default function GeneratePage() {
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>
-              <span className="text-gray-600">AI model hazırlanıyor</span>
+              <span className="text-gray-600">Arka plan kaldırılıyor...</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${progress > 60 ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}>
@@ -167,7 +168,7 @@ export default function GeneratePage() {
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>
-              <span className="text-gray-600">Görsel oluşturuluyor</span>
+              <span className="text-gray-600">Ortamla birleştiriliyor...</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${progress >= 100 ? 'bg-green-500' : 'bg-gray-300'}`}>
