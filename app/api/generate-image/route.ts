@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { HfInference } from '@huggingface/inference';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,18 +54,33 @@ export async function POST(request: NextRequest) {
       enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
     }
 
-    // Hugging Face ile görsel oluşturma (Stable Diffusion XL)
-    const imageBlob = await hf.textToImage({
-      model: 'stabilityai/stable-diffusion-xl-base-1.0',
-      inputs: enhancedPrompt,
-      parameters: {
-        negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
+    // Hugging Face ile görsel oluşturma (direkt API çağrısı)
+    const hfResponse = await fetch(
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: enhancedPrompt,
+          parameters: {
+            negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
+            num_inference_steps: 30,
+            guidance_scale: 7.5,
+          }
+        }),
       }
-    });
+    );
+
+    if (!hfResponse.ok) {
+      const errorText = await hfResponse.text();
+      throw new Error(`Hugging Face API error: ${hfResponse.status} - ${errorText}`);
+    }
 
     // Blob'u base64'e çevir
+    const imageBlob = await hfResponse.blob();
     const arrayBuffer = await imageBlob.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
