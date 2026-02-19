@@ -20,11 +20,11 @@ export async function POST(request: NextRequest) {
 
     let enhancedPrompt = prompt;
 
-    // Gemini ile prompt iyileştirme (optional - hata alırsa skip)
+    // Gemini ile prompt iyileştirme
     if (process.env.GEMINI_API_KEY) {
-      try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-      
+      // Hata yakalama (try-catch) kaldırıldı, hata varsa direkt dönsün
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    
       const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
       Enhance this prompt to create a photorealistic, professional medical image:
       
@@ -44,14 +44,50 @@ export async function POST(request: NextRequest) {
       enhancedPrompt = response.text();
 
       console.log('✅ Gemini enhanced prompt:', enhancedPrompt);
-      } catch (geminiError: any) {
-        console.warn('⚠️ Gemini enhancement failed, using original prompt:', geminiError.message);
-        // Gemini başarısız olursa orijinal prompt'u kullan
-        enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
-      }
     } else {
-      // Gemini yoksa basit enhancement
+      console.warn('⚠️ Gemini API key not configured, using basic prompt enhancement');
       enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
+    }
+
+    // Hugging Face API çağrısı için body hazırlığı
+    let apiBody;
+    
+    // Eğer input görsel varsa Image-to-Image kullan
+    if (image) {
+      // Base64 header'ını temizle (data:image/jpeg;base64, kısmı varsa at)
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      
+      apiBody = {
+        inputs: base64Data, // Image-to-Image için görseli input olarak veriyoruz
+        parameters: {
+          prompt: enhancedPrompt, // Prompt parameters içinde gider
+          negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
+          num_inference_steps: 40, // Daha kaliteli sonuç için artırıldı
+          guidance_scale: 7.5,
+          strength: 0.7, // Orijinal göresele sadakat (0.0-1.0 arası). 0.7-0.8 idealdir.
+        },
+        options: {
+          wait_for_model: true,
+          use_cache: false
+        }
+      };
+      
+      console.log('🖼️ Image-to-Image modu kullanılıyor');
+    } else {
+      // Sadece text varsa Text-to-Image
+      apiBody = {
+        inputs: enhancedPrompt,
+        parameters: {
+          negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
+          num_inference_steps: 25,
+          guidance_scale: 7.5,
+        },
+        options: {
+          wait_for_model: true,
+          use_cache: false
+        }
+      };
+      console.log('📝 Text-to-Image modu kullanılıyor');
     }
 
     // Hugging Face ile görsel oluşturma (direkt API çağrısı - YENİ ROUTER FORMAT)
@@ -64,18 +100,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           'x-use-cache': 'false',
         },
-        body: JSON.stringify({
-          inputs: enhancedPrompt,
-          parameters: {
-            negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-            num_inference_steps: 25,
-            guidance_scale: 7.5,
-          },
-          options: {
-            wait_for_model: true,
-            use_cache: false
-          }
-        }),
+        body: JSON.stringify(apiBody),
       }
     );
 
