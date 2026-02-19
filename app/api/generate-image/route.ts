@@ -3,9 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { HfInference } from '@huggingface/inference';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY, {
-  baseUrl: 'https://router.huggingface.co'
-});
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
