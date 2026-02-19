@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     // Gemini ile prompt iyileştirme
     if (process.env.GEMINI_API_KEY) {
       // Hata yakalama (try-catch) kaldırıldı, hata varsa direkt dönsün
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+      // Model ismi güncellendi: 'gemini-1.5-flash-latest' -> 'gemini-1.5-flash'
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
       const enhancementPrompt = `You are a professional prompt engineer for AI image generation. 
       Enhance this prompt to create a photorealistic, professional medical image:
