@@ -54,21 +54,26 @@ export async function POST(request: NextRequest) {
       enhancedPrompt = `Photorealistic, professional, high quality image: ${prompt}. Ultra detailed, 4K resolution, professional photography, realistic lighting.`;
     }
 
-    // Hugging Face ile görsel oluşturma (direkt API çağrısı)
+    // Hugging Face ile görsel oluşturma (direkt API çağrısı - YENİ ROUTER FORMAT)
     const hfResponse = await fetch(
-      'https://router.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
           'Content-Type': 'application/json',
+          'x-use-cache': 'false',
         },
         body: JSON.stringify({
           inputs: enhancedPrompt,
           parameters: {
             negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-            num_inference_steps: 30,
+            num_inference_steps: 25,
             guidance_scale: 7.5,
+          },
+          options: {
+            wait_for_model: true,
+            use_cache: false
           }
         }),
       }
