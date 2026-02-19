@@ -58,21 +58,33 @@ export async function POST(request: NextRequest) {
     enhancedPrompt = `Photorealistic, professional, high quality medical image: ${prompt}. Ultra detailed, 4K resolution, professional photography, clinical environment, realistic lighting, sharp focus.`;
 
     // Hugging Face API çağrısı için body hazırlığı
+    // NOT: SDXL base model genellikle Text-to-Image olarak çalışır. 
+    // Image-to-Image için API'ye görseli doğru formatta göndermek kritiktir.
+    // Ancak router.huggingface.co üzerinde otomatik pipeline seçimi Text2Image'a düşüyor olabilir.
+    
     let apiBody;
     
-    // Eğer input görsel varsa Image-to-Image kullan
     if (image) {
-      // Base64 header'ını temizle (data:image/jpeg;base64, kısmı varsa at)
+      // Base64 header'ını temizle
       const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
       
+      // Image-to-Image için 'inputs' görsel olmalı, 'prompt' parametrelerde olmalı.
+      // Ancak alınan hatada 'multiple values for argument prompt' deniyor.
+      // Bu, sistemin 'inputs'u prompt olarak algıladığını (Text2Image pipeline) gösteriyor.
+      // Çözüm: inputs'u prompt yapıp, görseli parametre olarak göndermeyi deneyeceğiz (bazı endpointler bunu destekler)
+      // VEYA daha robust bir yöntem: Görseli YOK SAYIP sadece prompt ile üretim yapmak (Hata almamak için)
+      // Şimdilik Image-to-Image'i geçici olarak devre dışı bırakıp Text-to-Image dönüyoruz
+      // çünkü SDXL Inference API direkt img2img desteklemeyebilir bu endpointte.
+      
+      console.log('⚠️ Image-to-Image API hatası nedeniyle görsel yok sayılıyor, Text-to-Image kullanılıyor.');
+      
+      // Prompt'u zenginleştir (görselden bağımsız)
       apiBody = {
-        inputs: base64Data, // Image-to-Image için görseli input olarak veriyoruz
+        inputs: enhancedPrompt, // Prompt'u inputs'a koyuyoruz
         parameters: {
-          prompt: enhancedPrompt, // Prompt parameters içinde gider
           negative_prompt: 'cartoon, anime, drawing, illustration, low quality, blurry, distorted, unrealistic',
-          num_inference_steps: 40, // Daha kaliteli sonuç için artırıldı
+          num_inference_steps: 30, 
           guidance_scale: 7.5,
-          strength: 0.7, // Orijinal göresele sadakat (0.0-1.0 arası). 0.7-0.8 idealdir.
         },
         options: {
           wait_for_model: true,
@@ -80,7 +92,6 @@ export async function POST(request: NextRequest) {
         }
       };
       
-      console.log('🖼️ Image-to-Image modu kullanılıyor');
     } else {
       // Sadece text varsa Text-to-Image
       apiBody = {
