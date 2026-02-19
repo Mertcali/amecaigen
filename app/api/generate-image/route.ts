@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Hugging Face ile görsel oluşturma (direkt API çağrısı - YENİ ROUTER FORMAT)
     const hfResponse = await fetch(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+      'https://router.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
       {
         method: 'POST',
         headers: {
