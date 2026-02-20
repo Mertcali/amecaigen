@@ -12,20 +12,25 @@ const replicate = new Replicate({
 // latest version: 8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b
 const FLUXPULID_VERSION = '8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b';
 
-// Ortam → Gerçekçi prompt
+// ─── PROMPT STRATEJİSİ ────────────────────────────────────────────────────────
+// flux-pulid "portrait, [transformation]" formatında kısa promptlarla en iyi sonucu verir.
+// "a person / a character" gibi ifadeler kimliği sıfırlar — KESİNLİKLE kullanma.
+// Yüz main_face_image'dan gelir; prompt sadece stil+ortamı tarif eder.
+
+// Ortam → Gerçekçi prompt (kısa + portrait odaklı)
 const ENV_PROMPTS_REALISTIC: Record<string, string> = {
-  'icu':            'professional photograph of a person working in a modern intensive care unit, medical monitors and ventilators in background, wearing medical scrubs, clinical hospital lighting, sharp focus, 8k',
-  'operating-room': 'professional photograph of a surgeon in a state-of-the-art operating room, bright surgical lights overhead, sterile OR environment, medical team in background, sharp focus, 8k',
-  'emergency':      'professional photograph of a doctor in a busy hospital emergency room, medical staff and equipment in background, urgent care ER setting, sharp focus, 8k',
-  'laboratory':     'professional photograph of a scientist in a modern medical research laboratory, microscopes and test tubes in background, white lab coat, clean lab environment, sharp focus, 8k',
+  'icu':            'portrait, medical professional in hospital intensive care unit, ICU monitors and equipment in background, wearing scrubs, cinematic lighting, sharp focus, photorealistic',
+  'operating-room': 'portrait, surgeon in operating room, bright surgical overhead lights, sterile OR setting, scrub cap and mask, cinematic, photorealistic',
+  'emergency':      'portrait, doctor in busy hospital emergency room, ER equipment in background, medical uniform, cinematic lighting, photorealistic',
+  'laboratory':     'portrait, scientist in medical research laboratory, lab bench with equipment in background, white lab coat, cinematic lighting, photorealistic',
 };
 
-// Ortam → Karikatür prompt
+// Ortam → Karikatür prompt (stil dönüşümü — "character" yok, kişiyi dönüştür)
 const ENV_PROMPTS_CARTOON: Record<string, string> = {
-  'icu':            '3D Disney Pixar style animated character in a modern intensive care unit, colorful cartoon medical monitors, friendly hospital setting, vibrant colors, animated movie style',
-  'operating-room': '3D Disney Pixar style animated character as a surgeon in an operating room, bright cartoon surgical lights, animated medical team, vibrant colors, animated movie style',
-  'emergency':      '3D Disney Pixar style animated character as an ER doctor, colorful cartoon hospital emergency room, animated medical staff, vibrant colors, animated movie style',
-  'laboratory':     '3D Disney Pixar style animated character as a scientist in a colorful laboratory, cartoon microscopes and test tubes, white lab coat, vibrant colors, animated movie style',
+  'icu':            'portrait, Disney Pixar 3D animation style, medical professional in colorful ICU ward, cartoon hospital monitors, warm friendly lighting, vibrant colors, animated movie render',
+  'operating-room': 'portrait, Disney Pixar 3D animation style, surgeon in cartoon operating room, bright stylized surgical lights, vibrant colors, animated movie render',
+  'emergency':      'portrait, Disney Pixar 3D animation style, doctor in colorful cartoon ER hospital, animated medical equipment, vibrant colors, animated movie render',
+  'laboratory':     'portrait, Disney Pixar 3D animation style, scientist in cartoon laboratory, colorful lab equipment in background, white coat, vibrant colors, animated movie render',
 };
 
 export async function POST(request: NextRequest) {
@@ -45,22 +50,29 @@ export async function POST(request: NextRequest) {
     // ─── Dinamik stil parametreleri ──────────────────────────────────────────
     let prompt: string;
     let negativePrompt: string;
-    // id_weight: yüz kimlik ağırlığı (0-3). Yüksek = daha çok yüz benzerliği.
-    // start_step: 0 = en yüksek yüz sadakati, 4 = daha fazla stil esnekliği
+    // id_weight : yüz kimlik ağırlığı (0–3). 2.0+ = yüz çok güçlü kilitlenir.
+    // start_step: 0 = en yüksek yüz sadakati, 4 = daha fazla stil dönüşümü
+    // true_cfg  : 1 = standart CFG. >1 = prompt bağlılığı (karikatür stilini zorlamak için)
     let idWeight: number;
     let startStep: number;
+    let trueCfg: number;
+    let guidanceScale: number;
 
     if (style === 'Karikatür') {
-      prompt         = ENV_PROMPTS_CARTOON[environment] ?? environment;
-      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs';
-      idWeight       = 1.0;  // Karikatür: kimlik biraz esner, stil ön plana çıkar
-      startStep      = 4;    // Daha fazla stil dönüşümü
+      prompt        = ENV_PROMPTS_CARTOON[environment] ?? environment;
+      negativePrompt = 'realistic photo, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs, text, signature, bad anatomy';
+      idWeight      = 1.3;  // Yüzü korur ama karikatür stiline dönüşmeye izin verir
+      startStep     = 4;    // Stil dönüşümü için daha fazla özgürlük
+      trueCfg       = 3;    // Prompt stilini güçlü zorla (Disney Pixar)
+      guidanceScale = 5;
     } else {
       // 'Gerçekçi' (varsayılan)
-      prompt         = ENV_PROMPTS_REALISTIC[environment] ?? environment;
-      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs, text, signature';
-      idWeight       = 1.8;  // Gerçekçi: yüz kimliği güçlü kilitlenir
-      startStep      = 1;    // Neredeyse en yüksek yüz sadakati
+      prompt        = ENV_PROMPTS_REALISTIC[environment] ?? environment;
+      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs, text, signature, bad anatomy';
+      idWeight      = 2.0;  // Maksimuma yakın kimlik kilidi — yüz en çok korunur
+      startStep     = 0;    // En yüksek yüz sadakati (model dokümantasyonu)
+      trueCfg       = 1;    // Standart CFG yeterli
+      guidanceScale = 4;
     }
 
     // ─── 1. Replicate prediction oluştur (version hash ile) ───────────────────
@@ -71,10 +83,11 @@ export async function POST(request: NextRequest) {
         prompt:           prompt,
         negative_prompt:  negativePrompt,
         num_outputs:      1,
-        num_steps:        20,          // flux-pulid max 20
-        guidance_scale:   5,           // prompt bağlılığı
-        id_weight:        idWeight,    // yüz kimlik ağırlığı
-        start_step:       startStep,   // kimlik enjeksiyonu başlangıç adımı
+        num_steps:        20,           // flux-pulid max 20
+        guidance_scale:   guidanceScale,
+        true_cfg:         trueCfg,      // >1 = prompt stilini daha güçlü zorla
+        id_weight:        idWeight,     // yüz kimlik ağırlığı (0–3)
+        start_step:       startStep,    // kimlik enjeksiyonu başlangıç adımı
         output_format:    'webp',
         output_quality:   90,
       },
