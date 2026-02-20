@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
 
-// Vercel: hobby 60s, pro 300s — polling'in sığması için gerekli
+// Vercel: hobby 60s, pro 300s
 export const maxDuration = 60;
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-// fofr/face-to-many: yüzü koruyarak farklı stil/ortam üretir
-const MODEL = 'fofr/face-to-many';
+// tencentarc/photomaker — yüz kimliğini koruyarak ortam+stil üretimi
+// latest version: ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4
+const PHOTOMAKER_VERSION = 'ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4';
 
-// Ortam → İngilizce prompt tanımları
+// Ortam → prompt (trigger word "img" prompt içinde zorunlu)
 const ENV_PROMPTS: Record<string, string> = {
-  'icu': 'in a modern intensive care unit hospital room, medical monitors ventilators and equipment visible in background, professional medical setting, clinical lighting',
-  'operating-room': 'in a state-of-the-art operating room surgical theater, bright overhead surgical lights, medical equipment and team in background, sterile environment',
-  'emergency': 'in a busy hospital emergency room, medical staff and equipment in background, urgent care setting, ER environment',
-  'laboratory': 'in a modern medical research laboratory, scientific microscopes test tubes and equipment in background, clean lab environment',
+  'icu':            'man img working in a modern intensive care unit, medical monitors and ventilators in background, professional medical attire, clinical hospital lighting',
+  'operating-room': 'surgeon img in a state-of-the-art operating room, bright surgical lights overhead, medical team and equipment in background, sterile OR environment',
+  'emergency':      'doctor img in a busy hospital emergency room, medical staff and equipment in background, urgent care ER setting',
+  'laboratory':     'scientist img in a modern medical research laboratory, microscopes and test tubes in background, clean lab environment',
 };
 
 export async function POST(request: NextRequest) {
@@ -35,33 +36,33 @@ export async function POST(request: NextRequest) {
 
     const envPrompt = ENV_PROMPTS[environment] ?? environment;
 
-    // ─── Dinamik model parametreleri (Gerçekçi vs Karikatür) ─────────────────
-    let replicateStyle: string;
-    let prompt: string;
+    // ─── Dinamik stil parametreleri ──────────────────────────────────────────
+    let styleName: string;
     let negativePrompt: string;
 
     if (style === 'Karikatür') {
-      replicateStyle   = 'Disney Charactor'; // Replicate modelin kendi yazımı
-      prompt           = `3D Pixar animated Disney character ${envPrompt}, vibrant colors, high quality, detailed cartoon animation style, expressive`;
-      negativePrompt   = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, sketch, 2D';
+      styleName      = 'Disney Charactor'; // Modelin kendi yazımı (typo intentional)
+      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw';
     } else {
       // 'Gerçekçi' (varsayılan)
-      replicateStyle   = 'Photographic';
-      prompt           = `RAW photo, highly detailed, photorealistic ${envPrompt}, professional medical attire, natural lighting, sharp focus, 4k resolution, cinematic`;
-      negativePrompt   = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, overexposed, watermark';
+      styleName      = 'Photographic (Default)';
+      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, nsfw, watermark';
     }
 
-    // ─── 1. Replicate prediction oluştur ─────────────────────────────────────
+    const prompt = `${envPrompt}, high quality, detailed`;
+
+    // ─── 1. Replicate prediction oluştur (version hash ile) ───────────────────
     const prediction = await replicate.predictions.create({
-      model: MODEL,
+      version: PHOTOMAKER_VERSION,
       input: {
-        image:            image, // data URI (base64) — Replicate destekler
-        style:            replicateStyle,
-        prompt:           prompt,
-        negative_prompt:  negativePrompt,
-        num_outputs:      1,
-        guidance_scale:   7.5,
-        num_inference_steps: 50,
+        input_image:         image,        // base64 data URI veya URL
+        prompt:              prompt,       // "img" trigger word içeriyor
+        style_name:          styleName,
+        negative_prompt:     negativePrompt,
+        num_outputs:         1,
+        num_steps:           20,
+        style_strength_ratio: style === 'Karikatür' ? 35 : 20,
+        guidance_scale:      5,
       },
     });
 
