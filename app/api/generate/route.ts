@@ -17,27 +17,35 @@ const INSTANTID_VERSION = '2e4785a4d80dadf580077b2244c8d7c05d8e3faac04a04c02d8e0
 // instant_id_strength = kimlik kilidi (0–1), style = "3D"
 const FACE_TO_MANY_VERSION = 'a07f252abbbd832009640b27f063ea52d87d7a23a185ca165bec23b5adc8deaf';
 
-// ─── ORTAM EŞLEŞTİRMESİ ──────────────────────────────────────────────────────
+// ─── ORTAM EŞLEŞTİRMESİ (GÜVENLİ) ─────────────────────────────────────────────
+// "surgery", "operating", "blood" gibi NSFW filtresini tetikleyen kelimeler YASAK.
+// Steril, parlak, profesyonel ortam tanımları kullanılıyor.
 const ENV_LABELS: Record<string, string> = {
-  'icu':            'Intensive Care Unit (ICU)',
-  'operating-room': 'Operating Room',
-  'emergency':      'Emergency Room',
-  'laboratory':     'Medical Laboratory',
+  'icu':            'high-tech advanced clinical monitoring room, bright and sterile',
+  'operating-room': 'modern clean bright healthcare facility, professional medical lighting',
+  'emergency':      'professional hospital triage center, modern clinic',
+  'laboratory':     'advanced scientific research laboratory, looking through a microscope, clean room',
 };
 
 // ─── PROMPT KURALI ───────────────────────────────────────────────────────────
 // ASLA "adam/kadın/gözleri kahverengi" gibi kişiyi tarif eden ifade ekleme.
-// Yüz bilgisi model tarafından input image'dan alınır; prompt SADECE ortam+stil tarif eder.
+// Yüz bilgisi model tarafından input image'dan alınır; prompt SADECE ortam+kadraj+stil tarif eder.
+// Cinematic wide/medium shot → selfie hissini kırar, profesyonel kadraj sağlar.
 
 function buildRealisticPrompt(environment: string): string {
   const env = ENV_LABELS[environment] ?? environment;
-  return `A professional doctor working in a ${env}, highly detailed, photorealistic, cinematic lighting, 8k resolution, documentary style photography`;
+  return `Cinematic medium wide shot, a professional doctor standing confidently in a ${env}, waist up portrait, highly detailed, photorealistic, 8k resolution, documentary style photography`;
 }
 
 function buildCartoonPrompt(environment: string): string {
   const env = ENV_LABELS[environment] ?? environment;
-  return `A 3D Pixar style animated character of a doctor in a ${env}, vibrant colors, digital illustration, smooth claymation, masterpiece`;
+  return `Medium wide shot, a 3D Pixar style animated character of a professional doctor in a ${env}, full character design, vibrant colors, digital illustration, masterpiece`;
 }
+
+// ─── ORTAK NEGATIVE PROMPT ────────────────────────────────────────────────────
+// Selfie hissini, NSFW/güvenlik filtresini ve düşük kaliteyi engeller.
+const NEGATIVE_PROMPT =
+  'nsfw, blood, gore, violence, surgery, injured, selfie, close-up, holding phone, looking at camera, bad anatomy, deformed, distorted, worst quality, low quality, watermark, text, signature';
 
 // ─── KVKK silme yardımcısı ───────────────────────────────────────────────────
 async function deletePrediction(id: string): Promise<void> {
@@ -103,7 +111,7 @@ export async function POST(request: NextRequest) {
         input: {
           image,
           prompt,
-          negative_prompt:               'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, text, signature, bad anatomy, extra limbs',
+          negative_prompt:               NEGATIVE_PROMPT + ', cartoon, anime, illustration, painting, drawing, noisy, blurry, extra limbs',
           sdxl_weights:                  'protovision-xl-high-fidel', // fotogerçekçi model ağırlığı
           num_outputs:                   1,
           num_inference_steps:           30,
@@ -130,7 +138,7 @@ export async function POST(request: NextRequest) {
           image,
           style:                  '3D',   // 3D Pixar render tarzı
           prompt,
-          negative_prompt:        'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, text, bad anatomy',
+          negative_prompt:        NEGATIVE_PROMPT + ', realistic, photo, noisy, blurry, extra limbs',
           prompt_strength:        4.5,    // CFG — prompt+yüz dengesi
           instant_id_strength:    1.0,    // InstantID kimlik kilidi maksimum
           denoising_strength:     0.65,   // %65 dönüşüm — yüz büyük ölçüde korunur
