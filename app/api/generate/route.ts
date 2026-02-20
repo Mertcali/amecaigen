@@ -34,18 +34,18 @@ const ENV_LABELS: Record<string, string> = {
 
 function buildRealisticPrompt(environment: string): string {
   const env = ENV_LABELS[environment] ?? environment;
-  return `Cinematic medium wide shot, a professional doctor standing confidently in a ${env}, waist up portrait, highly detailed, photorealistic, 8k resolution, documentary style photography`;
+  return `A natural candid photograph, standing pose, 3/4 portrait shot showing waist up, a professional doctor with a relaxed natural expression looking slightly away from camera, inside a ${env} with clear background details, volumetric lighting, cinematic, documentary style, 8k resolution`;
 }
 
 function buildCartoonPrompt(environment: string): string {
   const env = ENV_LABELS[environment] ?? environment;
-  return `Medium wide shot, a 3D Pixar style animated character of a professional doctor in a ${env}, full character design, vibrant colors, digital illustration, masterpiece`;
+  return `Full body character shot, standing pose, a 3D Pixar style animated character of a professional doctor with a relaxed friendly expression looking away from camera, inside a detailed ${env} with depth, vibrant colors, digital illustration, masterpiece`;
 }
 
 // ─── ORTAK NEGATIVE PROMPT ────────────────────────────────────────────────────
 // Selfie hissini, NSFW/güvenlik filtresini ve düşük kaliteyi engeller.
 const NEGATIVE_PROMPT =
-  'nsfw, blood, gore, violence, surgery, injured, selfie, close-up, holding phone, looking at camera, bad anatomy, deformed, distorted, worst quality, low quality, watermark, text, signature';
+  'nsfw, blood, gore, violence, surgery, injured, selfie, close-up, extreme close-up, face shot, head shot, holding phone, looking at camera, looking into lens, camera flash, phone camera, distorted face, strained expression, unnatural smile, wide angle lens distortion, fisheye lens, bad anatomy, deformed, distorted, worst quality, low quality, amateur, watermark, text, signature';
 
 // ─── KVKK silme yardımcısı ───────────────────────────────────────────────────
 async function deletePrediction(id: string): Promise<void> {
@@ -116,8 +116,11 @@ export async function POST(request: NextRequest) {
           num_outputs:                   1,
           num_inference_steps:           30,
           guidance_scale:                7,
-          ip_adapter_scale:              0.8,  // detay adaptörü
-          controlnet_conditioning_scale: 1.5,  // IdentityNet — max kimlik sadakati
+          ip_adapter_scale:              0.8,   // detay adaptörü
+          // controlnet_conditioning_scale = IdentityNet gücü.
+          // 1.5 = sadece yüz değil POZ da kilitlenir (selfie sorununa yol açar).
+          // 0.65 = yüz korunur ama model prompt'taki poz/kadraj talimatına uyar.
+          controlnet_conditioning_scale: 0.65,
           output_format:                 'webp',
           output_quality:                90,
           enhance_nonface_region:        true,
@@ -140,7 +143,8 @@ export async function POST(request: NextRequest) {
           prompt,
           negative_prompt:        NEGATIVE_PROMPT + ', realistic, photo, noisy, blurry, extra limbs',
           prompt_strength:        4.5,    // CFG — prompt+yüz dengesi
-          instant_id_strength:    1.0,    // InstantID kimlik kilidi maksimum
+          // instant_id_strength = 1.0 poz da kilitler; 0.70 kimliği korur, poza esneklik verir
+          instant_id_strength:    0.70,
           denoising_strength:     0.65,   // %65 dönüşüm — yüz büyük ölçüde korunur
           control_depth_strength: 0.8,
         },
