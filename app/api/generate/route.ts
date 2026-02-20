@@ -42,27 +42,28 @@ export async function POST(request: NextRequest) {
 
     if (style === 'Karikatür') {
       styleName      = 'Disney Charactor'; // Modelin kendi yazımı (typo intentional)
-      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw';
+      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw, different person';
     } else {
       // 'Gerçekçi' (varsayılan)
       styleName      = 'Photographic (Default)';
-      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, nsfw, watermark';
+      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, different person, changed identity';
     }
 
-    const prompt = `${envPrompt}, high quality, detailed`;
+    const prompt = `${envPrompt}, high quality, detailed, sharp focus`;
 
     // ─── 1. Replicate prediction oluştur (version hash ile) ───────────────────
     const prediction = await replicate.predictions.create({
       version: PHOTOMAKER_VERSION,
       input: {
-        input_image:         image,        // base64 data URI veya URL
-        prompt:              prompt,       // "img" trigger word içeriyor
-        style_name:          styleName,
-        negative_prompt:     negativePrompt,
-        num_outputs:         1,
-        num_steps:           20,
-        style_strength_ratio: style === 'Karikatür' ? 35 : 20,
-        guidance_scale:      5,
+        input_image:          image,
+        prompt:               prompt,
+        style_name:           styleName,
+        negative_prompt:      negativePrompt,
+        num_outputs:          1,
+        num_steps:            30,
+        // style_strength_ratio: DÜŞÜK = yüz daha çok korunur (15 minimum)
+        style_strength_ratio: style === 'Karikatür' ? 30 : 15,
+        guidance_scale:       7.5,
       },
     });
 
