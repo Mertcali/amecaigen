@@ -6,8 +6,10 @@ Modern web uygulaması - AI destekli medikal fotoğraf deneyimi. Kullanıcılar 
 
 - 🎯 **QR Kod Entegrasyonu** - Desktop'ta QR kod, mobilde direkt kamera
 - 📸 **Mobil Kamera** - Web Camera API ile sorunsuz fotoğraf çekimi
-- 🏥 **Medikal Ortamlar** - Yoğun Bakım ve Ameliyathane seçenekleri
-- 🤖 **AI Görsel Oluşturma** - remove.bg + sharp compositing ile akıllı arka plan değişimi
+- 🏥 **Medikal Ortamlar** - Yoğun Bakım, Ameliyathane, Acil Servis, Laboratuvar
+- 🤖 **AI Görsel Üretimi** - Replicate `fofr/face-to-many` ile kimlik korumalı görsel
+- 🎨 **İki Stil** - Gerçekçi (fotoğraf kalitesi) veya Karikatür / 3D (Pixar tarzı)
+- 🔒 **KVKK/GDPR** - Görsel üretimi sonrası Replicate'ten otomatik silme
 - 💫 **Modern UI** - Tailwind CSS ile şık ve responsive tasarım
 - 📱 **Mobil Uyumlu** - iOS ve Android tarayıcılarında çalışır
 
@@ -20,7 +22,8 @@ Modern web uygulaması - AI destekli medikal fotoğraf deneyimi. Kullanıcılar 
 1. Bu repo'yu GitHub'a push edin
 2. Vercel'a bağlayın
 3. Environment Variables ekleyin:
-   - `REMOVEBG_API_KEY` - remove.bg API key'iniz
+   - `REPLICATE_API_TOKEN` - Replicate API token'ınız
+   - `REMOVEBG_API_KEY` - remove.bg API key'iniz (eski flow)
    - `NEXT_PUBLIC_APP_URL` - Vercel URL'iniz (örn: `https://your-app.vercel.app`)
 4. Deploy edin!
 
@@ -85,6 +88,7 @@ git push -u origin main
 Vercel dashboard → Settings → Environment Variables:
 
 ```
+REPLICATE_API_TOKEN=your-replicate-api-token-here
 REMOVEBG_API_KEY=your-removebg-api-key-here
 NEXT_PUBLIC_APP_URL=https://your-site-name.vercel.app
 ```
@@ -95,10 +99,16 @@ NEXT_PUBLIC_APP_URL=https://your-site-name.vercel.app
 
 ## 🔑 API Keys Nasıl Alınır?
 
-### remove.bg API Key (Gerekli)
+### Replicate API Token (Yeni - Gerekli)
+1. [replicate.com](https://replicate.com/signin) adresine gidip GitHub ile kayıt olun
+2. [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) sayfasından token alın
+3. Token'ı kopyalayın ve Vercel'e ekleyin
+
+**Not:** Kayıt bonusuyla ücretsiz başlayabilirsiniz (~$5), sonrası ~$0.05-0.10/görsel
+
+### remove.bg API Key (Eski flow - Opsiyonel)
 1. [remove.bg](https://www.remove.bg/tr/users/sign_up) adresine gidip kayıt olun
-2. [API sayfasına](https://www.remove.bg/tr/api) gidin
-3. API key'i kopyalayın ve Vercel'e ekleyin
+2. [API sayfasından](https://www.remove.bg/tr/api) API key alın
 
 **Not:** Ücretsiz planda ayda 50 görsel üretebilirsiniz
 

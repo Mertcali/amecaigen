@@ -20,46 +20,50 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [background, setBackground] = useState<Background | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
 
   useEffect(() => {
-    const capturedPhoto = localStorage.getItem('capturedPhoto');
-    const selectedBg = localStorage.getItem('selectedBackground');
+    const capturedPhoto   = localStorage.getItem('capturedPhoto');
+    const selectedBg      = localStorage.getItem('selectedBackground');
+    const style           = localStorage.getItem('selectedStyle');
 
-    if (!capturedPhoto || !selectedBg) {
+    if (!capturedPhoto || !selectedBg || !style) {
       router.push('/camera');
       return;
     }
 
     const bg = JSON.parse(selectedBg) as Background;
     setBackground(bg);
+    setSelectedStyle(style);
 
-    // Progress simulation
+    // Progress simulation — Replicate ~30-60s sürebilir
     const progressInterval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
           return 90;
         }
-        return prev + 10;
+        return prev + 3;
       });
-    }, 1000);
+    }, 2000);
 
     // Generate image
-    generateImage(capturedPhoto, bg.backgroundImageUrl);
+    generateImage(capturedPhoto, bg.id, style);
 
     return () => clearInterval(progressInterval);
   }, [router]);
 
-  const generateImage = async (photo: string, backgroundImageUrl: string) => {
+  const generateImage = async (photo: string, environment: string, style: string) => {
     try {
-      const response = await fetch('/api/generate-image', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          image: photo,
-          backgroundImageUrl: backgroundImageUrl,
+          image:       photo,
+          environment: environment,
+          style:       style,
         }),
       });
 
@@ -96,6 +100,7 @@ export default function GeneratePage() {
   const startOver = () => {
     localStorage.removeItem('capturedPhoto');
     localStorage.removeItem('selectedBackground');
+    localStorage.removeItem('selectedStyle');
     router.push('/camera');
   };
 
@@ -110,7 +115,7 @@ export default function GeneratePage() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">AI Görselinizi Oluşturuyor</h2>
-            <p className="text-gray-600">Bu işlem birkaç saniye sürebilir...</p>
+            <p className="text-gray-600">Bu işlem 30-60 saniye sürebilir...</p>
           </div>
 
           {/* Progress Bar */}
@@ -129,9 +134,12 @@ export default function GeneratePage() {
 
           {/* Info */}
           {background && (
-            <div className="bg-gradient-to-r from-primary-50 to-primary-100 rounded-xl p-4">
+            <div className="bg-gradient-to-r from-primary-50 to-primary-100 rounded-xl p-4 space-y-1">
               <p className="text-sm text-gray-700">
-                <span className="font-semibold">Seçilen Ortam:</span> {background.name}
+                <span className="font-semibold">Ortam:</span> {background.name}
+              </p>
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">Stil:</span> {selectedStyle}
               </p>
             </div>
           )}
@@ -156,7 +164,7 @@ export default function GeneratePage() {
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>
-              <span className="text-gray-600">Arka plan kaldırılıyor...</span>
+              <span className="text-gray-600">Yüz kimliği analiz ediliyor...</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${progress > 60 ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}>
@@ -168,7 +176,7 @@ export default function GeneratePage() {
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>
-              <span className="text-gray-600">Ortamla birleştiriliyor...</span>
+              <span className="text-gray-600">Replicate AI üretiyor...</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${progress >= 100 ? 'bg-green-500' : 'bg-gray-300'}`}>

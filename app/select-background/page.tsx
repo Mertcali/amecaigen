@@ -52,9 +52,29 @@ const backgrounds: Background[] = [
   },
 ];
 
+type Style = 'Gerçekçi' | 'Karikatür';
+
+const styles: { id: Style; label: string; description: string; icon: string; gradient: string }[] = [
+  {
+    id: 'Gerçekçi',
+    label: 'Gerçekçi',
+    description: 'Fotoğraf kalitesinde, gerçekçi AI görseli',
+    icon: '📸',
+    gradient: 'from-slate-600 to-slate-800',
+  },
+  {
+    id: 'Karikatür',
+    label: 'Karikatür / 3D',
+    description: 'Pixar / Disney animasyon tarzı çizgi görsel',
+    icon: '🎨',
+    gradient: 'from-pink-500 to-fuchsia-600',
+  },
+];
+
 export default function SelectBackgroundPage() {
   const router = useRouter();
   const [selectedBackground, setSelectedBackground] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,10 +87,11 @@ export default function SelectBackgroundPage() {
   }, [router]);
 
   const handleGenerate = () => {
-    if (selectedBackground) {
+    if (selectedBackground && selectedStyle) {
       const background = backgrounds.find(bg => bg.id === selectedBackground);
       if (background) {
         localStorage.setItem('selectedBackground', JSON.stringify(background));
+        localStorage.setItem('selectedStyle', selectedStyle);
         router.push('/generate');
       }
     }
@@ -159,8 +180,44 @@ export default function SelectBackgroundPage() {
             </div>
           </div>
 
-          {/* Generate Button */}
+          {/* Style Selection */}
           {selectedBackground && (
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Görsel Stili Seçin</h2>
+              <p className="text-gray-600 mb-4">Oluşturulacak görselin stilini belirleyin.</p>
+              <div className="grid grid-cols-2 gap-4">
+                {styles.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedStyle(s.id)}
+                    className={`relative overflow-hidden rounded-2xl p-6 text-left transition-all transform hover:scale-105 ${
+                      selectedStyle === s.id
+                        ? 'ring-4 ring-primary-500 shadow-2xl'
+                        : 'shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} opacity-90`}></div>
+                    <div className="relative z-10 text-white">
+                      <div className="text-4xl mb-3">{s.icon}</div>
+                      <h3 className="text-lg font-bold mb-1">{s.label}</h3>
+                      <p className="text-sm text-white/90">{s.description}</p>
+                      {selectedStyle === s.id && (
+                        <div className="mt-3 flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-2 rounded-lg">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-sm font-medium">Seçildi</span>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generate Button */}
+          {selectedBackground && selectedStyle && (
             <div className="sticky bottom-0 bg-white rounded-2xl shadow-xl p-6 border-4 border-primary-200">
               <button
                 onClick={handleGenerate}
