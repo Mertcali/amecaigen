@@ -36,16 +36,16 @@ export default function GeneratePage() {
     setBackground(bg);
     setSelectedStyle(style);
 
-    // Progress simulation — Replicate ~30-60s sürebilir
+    // Progress simulation — polling süresine göre yavaş artış
     const progressInterval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
           return 90;
         }
-        return prev + 3;
+        return prev + 2;
       });
-    }, 2000);
+    }, 2500);
 
     // Generate image
     generateImage(capturedPhoto, bg.id, style);
@@ -55,29 +55,62 @@ export default function GeneratePage() {
 
   const generateImage = async (photo: string, environment: string, style: string) => {
     try {
-      const response = await fetch('/api/generate', {
+      // ── Adım 1: Prediction oluştur, ID al (<5s, Vercel timeout yok) ──────────
+      const createRes = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image:       photo,
-          environment: environment,
-          style:       style,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: photo, environment, style }),
       });
 
-      const data = await response.json();
+      const createData = await createRes.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate image');
+      if (!createRes.ok) {
+        throw new Error(createData.error || 'Prediction oluşturulamadı');
       }
 
-      setProgress(100);
-      setTimeout(() => {
-        setGeneratedImage(data.imageUrl);
-        setIsGenerating(false);
-      }, 500);
+      const { predictionId } = createData;
+      console.log(`⏳ Polling başlıyor: ${predictionId}`);
+
+      // ── Adım 2: Client-side polling — her 2.5s'de bir durum sor ─────────────
+      // Maksimum 120s bekle (48 × 2.5s). Vercel fonksiyonu <1s sürer.
+      const MAX_POLLS = 48;
+      let polls = 0;
+
+      await new Promise<void>((resolve, reject) => {
+        const interval = setInterval(async () => {
+          polls++;
+          console.log(`📡 Poll ${polls}/${MAX_POLLS}`);
+
+          if (polls > MAX_POLLS) {
+            clearInterval(interval);
+            reject(new Error('İşlem zaman aşımına uğradı (120s). Lütfen tekrar deneyin.'));
+            return;
+          }
+
+          try {
+            const pollRes  = await fetch(`/api/poll/${predictionId}`);
+            const pollData = await pollRes.json();
+
+            if (pollData.status === 'succeeded') {
+              clearInterval(interval);
+              setProgress(100);
+              setTimeout(() => {
+                setGeneratedImage(pollData.imageUrl);
+                setIsGenerating(false);
+              }, 400);
+              resolve();
+
+            } else if (pollData.status === 'failed') {
+              clearInterval(interval);
+              reject(new Error(pollData.error || 'Model görsel üretemedi'));
+            }
+            // 'starting' veya 'processing' → bekle, interval devam eder
+          } catch (pollErr: any) {
+            // Geçici ağ hatası — interval devam eder, job iptal olmaz
+            console.warn('Poll ağ hatası (devam ediyor):', pollErr.message);
+          }
+        }, 2500);
+      });
 
     } catch (err: any) {
       console.error('Generation error:', err);

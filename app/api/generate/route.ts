@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
 
-// Vercel: hobby 60s
-export const maxDuration = 60;
+// Bu endpoint SADECE prediction oluşturur ve ID'yi döner (<5s).
+// Bekleme/polling tamamen client tarafında yapılır → Vercel 60s limiti sorun değil.
+export const maxDuration = 30;
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -64,31 +65,7 @@ async function deletePrediction(id: string): Promise<void> {
   }
 }
 
-// ─── POLLİNG yardımcısı — 28 × 2s = 56s (Vercel 60s limitinin içinde) ───────
-async function pollUntilDone(predictionId: string) {
-  const maxAttempts = 28;
-  let attempts = 0;
-  let result = await replicate.predictions.get(predictionId);
-
-  while (
-    result.status !== 'succeeded' &&
-    result.status !== 'failed'    &&
-    result.status !== 'canceled'
-  ) {
-    if (attempts >= maxAttempts) {
-      throw new Error('İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.');
-    }
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    result = await replicate.predictions.get(predictionId);
-    attempts++;
-    console.log(`⏳ Polling ${attempts}/${maxAttempts} — ${result.status}`);
-  }
-  return result;
-}
-
 export async function POST(request: NextRequest) {
-  let predictionId: string | null = null;
-
   try {
     const { image, environment, style } = await request.json();
 
@@ -112,14 +89,11 @@ export async function POST(request: NextRequest) {
           image,
           prompt,
           negative_prompt:               NEGATIVE_PROMPT + ', cartoon, anime, illustration, painting, drawing, noisy, blurry, extra limbs',
-          sdxl_weights:                  'protovision-xl-high-fidel', // fotogerçekçi model ağırlığı
+          sdxl_weights:                  'protovision-xl-high-fidel',
           num_outputs:                   1,
           num_inference_steps:           30,
           guidance_scale:                7,
-          ip_adapter_scale:              0.8,   // detay adaptörü
-          // controlnet_conditioning_scale = IdentityNet gücü.
-          // 1.5 = sadece yüz değil POZ da kilitlenir (selfie sorununa yol açar).
-          // 0.65 = yüz korunur ama model prompt'taki poz/kadraj talimatına uyar.
+          ip_adapter_scale:              0.8,
           controlnet_conditioning_scale: 0.65,
           output_format:                 'webp',
           output_quality:                90,
@@ -139,44 +113,26 @@ export async function POST(request: NextRequest) {
         version: FACE_TO_MANY_VERSION,
         input: {
           image,
-          style:                  '3D',   // 3D Pixar render tarzı
+          style:                  '3D',
           prompt,
           negative_prompt:        NEGATIVE_PROMPT + ', realistic, photo, noisy, blurry, extra limbs',
-          prompt_strength:        4.5,    // CFG — prompt+yüz dengesi
-          // instant_id_strength = 1.0 poz da kilitler; 0.70 kimliği korur, poza esneklik verir
+          prompt_strength:        4.5,
           instant_id_strength:    0.70,
-          denoising_strength:     0.65,   // %65 dönüşüm — yüz büyük ölçüde korunur
+          denoising_strength:     0.65,
           control_depth_strength: 0.8,
         },
       });
     }
 
-    predictionId = prediction.id;
-    console.log(`✅ Prediction: ${predictionId} | model: ${style === 'Gerçekçi' ? 'instant-id' : 'face-to-many'}`);
+    console.log(`✅ Prediction oluşturuldu: ${prediction.id} | model: ${style === 'Gerçekçi' ? 'instant-id' : 'face-to-many'}`);
 
-    // ─── Polling ─────────────────────────────────────────────────────────────
-    const result = await pollUntilDone(predictionId);
-
-    if (result.status !== 'succeeded' || !result.output) {
-      throw new Error(`Görsel oluşturulamadı: ${result.error ?? 'Model çıktı üretemedi'}`);
-    }
-
-    const outputUrl = Array.isArray(result.output) ? result.output[0] : result.output;
-
-    // ─── KVKK/GDPR ───────────────────────────────────────────────────────────
-    await deletePrediction(predictionId);
-
-    return NextResponse.json({ success: true, imageUrl: outputUrl });
+    // Sadece ID döner — client kendi polling loop'unu çalıştırır
+    return NextResponse.json({ predictionId: prediction.id });
 
   } catch (error: any) {
-    console.error('Generation error:', error);
-    if (predictionId) await deletePrediction(predictionId);
-
+    console.error('Create prediction error:', error);
     return NextResponse.json(
-      {
-        error:   error.message ?? 'Görsel oluşturulurken bir hata oluştu',
-        details: error.message ?? 'Bilinmeyen hata',
-      },
+      { error: error.message ?? 'Prediction oluşturulamadı' },
       { status: 500 }
     );
   }
