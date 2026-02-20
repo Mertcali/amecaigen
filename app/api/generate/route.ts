@@ -8,16 +8,24 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-// tencentarc/photomaker — yüz kimliğini koruyarak ortam+stil üretimi
-// latest version: ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4
-const PHOTOMAKER_VERSION = 'ddfc2b08d209f9fa8c1eca692712918bd449f695dabb4a958da31802a9570fe4';
+// bytedance/flux-pulid — FLUX tabanlı, yüz kimliğini %90+ koruma
+// latest version: 8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b
+const FLUXPULID_VERSION = '8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b';
 
-// Ortam → prompt (trigger word "img" prompt içinde zorunlu)
-const ENV_PROMPTS: Record<string, string> = {
-  'icu':            'man img working in a modern intensive care unit, medical monitors and ventilators in background, professional medical attire, clinical hospital lighting',
-  'operating-room': 'surgeon img in a state-of-the-art operating room, bright surgical lights overhead, medical team and equipment in background, sterile OR environment',
-  'emergency':      'doctor img in a busy hospital emergency room, medical staff and equipment in background, urgent care ER setting',
-  'laboratory':     'scientist img in a modern medical research laboratory, microscopes and test tubes in background, clean lab environment',
+// Ortam → Gerçekçi prompt
+const ENV_PROMPTS_REALISTIC: Record<string, string> = {
+  'icu':            'professional photograph of a person working in a modern intensive care unit, medical monitors and ventilators in background, wearing medical scrubs, clinical hospital lighting, sharp focus, 8k',
+  'operating-room': 'professional photograph of a surgeon in a state-of-the-art operating room, bright surgical lights overhead, sterile OR environment, medical team in background, sharp focus, 8k',
+  'emergency':      'professional photograph of a doctor in a busy hospital emergency room, medical staff and equipment in background, urgent care ER setting, sharp focus, 8k',
+  'laboratory':     'professional photograph of a scientist in a modern medical research laboratory, microscopes and test tubes in background, white lab coat, clean lab environment, sharp focus, 8k',
+};
+
+// Ortam → Karikatür prompt
+const ENV_PROMPTS_CARTOON: Record<string, string> = {
+  'icu':            '3D Disney Pixar style animated character in a modern intensive care unit, colorful cartoon medical monitors, friendly hospital setting, vibrant colors, animated movie style',
+  'operating-room': '3D Disney Pixar style animated character as a surgeon in an operating room, bright cartoon surgical lights, animated medical team, vibrant colors, animated movie style',
+  'emergency':      '3D Disney Pixar style animated character as an ER doctor, colorful cartoon hospital emergency room, animated medical staff, vibrant colors, animated movie style',
+  'laboratory':     '3D Disney Pixar style animated character as a scientist in a colorful laboratory, cartoon microscopes and test tubes, white lab coat, vibrant colors, animated movie style',
 };
 
 export async function POST(request: NextRequest) {
@@ -34,41 +42,46 @@ export async function POST(request: NextRequest) {
       throw new Error('REPLICATE_API_TOKEN yapılandırılmamış');
     }
 
-    const envPrompt = ENV_PROMPTS[environment] ?? environment;
-
     // ─── Dinamik stil parametreleri ──────────────────────────────────────────
-    let styleName: string;
+    let prompt: string;
     let negativePrompt: string;
+    // id_weight: yüz kimlik ağırlığı (0-3). Yüksek = daha çok yüz benzerliği.
+    // start_step: 0 = en yüksek yüz sadakati, 4 = daha fazla stil esnekliği
+    let idWeight: number;
+    let startStep: number;
 
     if (style === 'Karikatür') {
-      styleName      = 'Disney Charactor'; // Modelin kendi yazımı (typo intentional)
-      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw, different person';
+      prompt         = ENV_PROMPTS_CARTOON[environment] ?? environment;
+      negativePrompt = 'realistic, photo, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs';
+      idWeight       = 1.0;  // Karikatür: kimlik biraz esner, stil ön plana çıkar
+      startStep      = 4;    // Daha fazla stil dönüşümü
     } else {
       // 'Gerçekçi' (varsayılan)
-      styleName      = 'Photographic (Default)';
-      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, different person, changed identity';
+      prompt         = ENV_PROMPTS_REALISTIC[environment] ?? environment;
+      negativePrompt = 'cartoon, anime, illustration, painting, drawing, ugly, deformed, noisy, blurry, low quality, nsfw, watermark, extra limbs, text, signature';
+      idWeight       = 1.8;  // Gerçekçi: yüz kimliği güçlü kilitlenir
+      startStep      = 1;    // Neredeyse en yüksek yüz sadakati
     }
-
-    const prompt = `${envPrompt}, high quality, detailed, sharp focus`;
 
     // ─── 1. Replicate prediction oluştur (version hash ile) ───────────────────
     const prediction = await replicate.predictions.create({
-      version: PHOTOMAKER_VERSION,
+      version: FLUXPULID_VERSION,
       input: {
-        input_image:          image,
-        prompt:               prompt,
-        style_name:           styleName,
-        negative_prompt:      negativePrompt,
-        num_outputs:          1,
-        num_steps:            30,
-        // style_strength_ratio: DÜŞÜK = yüz daha çok korunur (15 minimum)
-        style_strength_ratio: style === 'Karikatür' ? 30 : 15,
-        guidance_scale:       7.5,
+        main_face_image:  image,
+        prompt:           prompt,
+        negative_prompt:  negativePrompt,
+        num_outputs:      1,
+        num_steps:        20,          // flux-pulid max 20
+        guidance_scale:   5,           // prompt bağlılığı
+        id_weight:        idWeight,    // yüz kimlik ağırlığı
+        start_step:       startStep,   // kimlik enjeksiyonu başlangıç adımı
+        output_format:    'webp',
+        output_quality:   90,
       },
     });
 
     predictionId = prediction.id;
-    console.log(`✅ Prediction oluşturuldu: ${predictionId} | stil: ${style}`);
+    console.log(`✅ flux-pulid Prediction oluşturuldu: ${predictionId} | stil: ${style} | id_weight: ${idWeight}`);
 
     // ─── 2. Polling: succeeded ya da failed olana dek bekle ──────────────────
     // maxAttempts × 2s bekleme = ~56s (Vercel 60s limiti içinde)
